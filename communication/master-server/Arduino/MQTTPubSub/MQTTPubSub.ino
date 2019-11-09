@@ -1,4 +1,4 @@
-#ifdef ESP32
+#ifdef ESP32 
 #include <WiFi.h>
 #elif defined(ESP8266)
 #include <ESP8266WiFi.h>
@@ -247,6 +247,7 @@ void checkWiFiThenReboot(void)
 
 void sendData(void)
 {
+  time_t time_stamp= time(NULL);
   DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(3) + 100);
   JsonObject root = jsonBuffer.to<JsonObject>();
   JsonObject state = root.createNestedObject("state");
@@ -256,7 +257,8 @@ void sendData(void)
   state_data["current"] = random(100); // Pass current from IC
   state_data["voltage"] = random(100); // Pass voltage from IC
   state_data["temperature"] = random(100); // Pass temperature from IC
-
+  state_data["ID"] = random(20); // Pass outletID 
+  state_data["timestamp"] = ctime(&time_stamp);
   Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
   serializeJson(root, Serial);
   Serial.println();
