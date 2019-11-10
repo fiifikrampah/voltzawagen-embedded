@@ -247,23 +247,21 @@ void checkWiFiThenReboot(void)
 
 void sendData(void)
 {
-  time_t time_stamp= time(NULL);
-  DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(3) + 100);
+  time_t time_stamp= time(nullptr);
+  DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(16) + 100);
   JsonObject root = jsonBuffer.to<JsonObject>();
-  JsonObject state = root.createNestedObject("state");
-  JsonObject state_data= state.createNestedObject("data");
-  // JsonObject state_voltage= state.createNestedObject("voltage");
-  // JsonObject state_temperature= state.createNestedObject("temperature"); 
-  state_data["current"] = random(100); // Pass current from IC
-  state_data["voltage"] = random(100); // Pass voltage from IC
-  state_data["temperature"] = random(100); // Pass temperature from IC
-  state_data["ID"] = random(20); // Pass outletID 
-  state_data["timestamp"] = ctime(&time_stamp);
+  root["current"] = random(100); // Pass current from IC
+  root["voltage"] = random(100); // Pass voltage from IC
+  root["temperature"] = random(100); // Pass temperature from IC
+  root["id"] = 0; // Pass outletID 
+  root["timestamp"] = time_stamp; //Pass epoch time
   Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
   serializeJson(root, Serial);
   Serial.println();
   char shadow[measureJson(root) + 1];
   serializeJson(root, shadow, sizeof(shadow));
+  Serial.print("IP address:\t");
+  Serial.println(WiFi.localIP());         // Send the IP address of the ESP8266 to the computer
 #ifdef USE_PUB_SUB
   if (!client.publish(MQTT_PUB_TOPIC, shadow, false))
     pubSubErr(client.state());
