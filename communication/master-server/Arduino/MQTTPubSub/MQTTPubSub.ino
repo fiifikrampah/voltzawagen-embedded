@@ -9,7 +9,12 @@
 #include <ArduinoJson.h> //https://github.com/bblanchon/ArduinoJson (use v6.xx)
 #include <time.h>
 #define emptyString String()
+#include <cstdlib>
+#include <ctime>
+#include <iostream>
+#include <string>
 
+using namespace std; 
 
 //Enter values in secrets.h ▼
 #include "secrets.h"
@@ -23,8 +28,9 @@
 #endif
 
 const int MQTT_PORT = 8883;
-const char MQTT_SUB_TOPIC[] = "$aws/things/" THINGNAME "/shadow/update";
+const char MQTT_SUB_TOPIC[] = "$aws/things/" THINGNAME "/shadow/get";
 const char MQTT_PUB_TOPIC[] = "$aws/things/" THINGNAME "/shadow/update";
+int status = 0;
 
 #ifdef USE_SUMMER_TIME_DST
 uint8_t DST = 1;
@@ -115,7 +121,17 @@ void pubSubErr(int8_t MQTTErr)
 
 void messageReceived(String &topic, String &payload)
 {
-  Serial.println("Recieved [" + topic + "]: " + payload);
+  Serial.println("This is the data received from broker [" + topic + "]: " + payload);
+  if (payload.equals("10")){
+    Serial.println("The device is turned off, doing nothing");
+    status = 0; 
+  }
+  else if (payload.equals("11"))
+  {
+    Serial.println("The device is turned on, sending data");
+    status = 1; 
+    sendData();
+  }
 }
 
 void lwMQTTErr(lwmqtt_err_t reason)
@@ -206,6 +222,10 @@ void connectToMqtt(bool nonBlocking = false)
       break;
   }
 }
+// Double random number generator
+double doubleRand() {
+  return (int(rand()) / (double(RAND_MAX) + 10))*100;
+}
 
 void connectToWiFi(String init_str)
 {
@@ -245,30 +265,37 @@ void checkWiFiThenReboot(void)
   ESP.restart();
 }
 
+
+
 void sendData(void)
 {
-  time_t time_stamp= time(nullptr);
-  DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(16) + 100);
-  JsonObject root = jsonBuffer.to<JsonObject>();
-  root["current"] = random(100); // Pass current from IC
-  root["voltage"] = random(100); // Pass voltage from IC
-  root["temperature"] = random(100); // Pass temperature from IC
-  root["id"] = 0; // Pass outletID 
-  root["timestamp"] = time_stamp; //Pass epoch time
-  Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
-  serializeJson(root, Serial);
-  Serial.println();
-  char shadow[measureJson(root) + 1];
-  serializeJson(root, shadow, sizeof(shadow));
-  Serial.print("IP address:\t");
-  Serial.println(WiFi.localIP());         // Send the IP address of the ESP8266 to the computer
-#ifdef USE_PUB_SUB
-  if (!client.publish(MQTT_PUB_TOPIC, shadow, false))
-    pubSubErr(client.state());
-#else
-  if (!client.publish(MQTT_PUB_TOPIC, shadow, false, 0))
-    lwMQTTErr(client.lastError());
-#endif
+  if (status == 1)
+  {
+    time_t time_stamp= time(nullptr);
+  
+    DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(5) + 180);
+    JsonObject root = jsonBuffer.to<JsonObject>();
+    root["current"] = int(doubleRand()); // Pass current from IC;
+    root["voltage"] = int(doubleRand()); // Pass voltage from IC
+    root["temperature"] = int(doubleRand()); // Pass temperature from IC
+    root["id"] = 1;
+    root["timestamp"] = time_stamp; //Pass epoch time
+
+    Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
+    serializeJson(root, Serial);
+    Serial.println();
+    char shadow[measureJson(root) + 1];
+    serializeJson(root, shadow, sizeof(shadow));
+    Serial.print("IP address:\t");
+    Serial.println(WiFi.localIP());         // Send the IP address of the ESP8266 to the computer
+  #ifdef USE_PUB_SUB
+    if (!client.publish(MQTT_PUB_TOPIC, shadow, false))
+      pubSubErr(client.state());
+  #else
+    if (!client.publish(MQTT_PUB_TOPIC, shadow, false, 0))
+      lwMQTTErr(client.lastError());
+  #endif
+  }
 }
 
 void setup()
