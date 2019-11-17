@@ -31,7 +31,7 @@ const int MQTT_PORT = 8883;
 const char MQTT_SUB_TOPIC[] = "$aws/things/" THINGNAME "/shadow/get";
 const char MQTT_PUB_TOPIC[] = "$aws/things/" THINGNAME "/shadow/update";
 int status = 0;
-
+// time_t yesterday = 1573809148; 
 #ifdef USE_SUMMER_TIME_DST
 uint8_t DST = 1;
 #else
@@ -124,7 +124,9 @@ void messageReceived(String &topic, String &payload)
   Serial.println("This is the data received from broker [" + topic + "]: " + payload);
   if (payload.equals("10")){
     Serial.println("The device is turned off, doing nothing");
-    status = 0; 
+    status = 0;
+    Serial.println(status);
+    sendData(); 
   }
   else if (payload.equals("11"))
   {
@@ -222,10 +224,6 @@ void connectToMqtt(bool nonBlocking = false)
       break;
   }
 }
-// Double random number generator
-double doubleRand() {
-  return (int(rand()) / (double(RAND_MAX) + 10))*100;
-}
 
 void connectToWiFi(String init_str)
 {
@@ -269,17 +267,19 @@ void checkWiFiThenReboot(void)
 
 void sendData(void)
 {
-  if (status == 1)
-  {
-    time_t time_stamp= time(nullptr);
+  time_t time_stamp= time(nullptr);
   
-    DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(5) + 180);
-    JsonObject root = jsonBuffer.to<JsonObject>();
-    root["current"] = int(doubleRand()); // Pass current from IC;
-    root["voltage"] = int(doubleRand()); // Pass voltage from IC
-    root["temperature"] = int(doubleRand()); // Pass temperature from IC
-    root["id"] = 1;
-    root["timestamp"] = time_stamp; //Pass epoch time
+  
+  DynamicJsonDocument jsonBuffer(JSON_OBJECT_SIZE(5) + 180);
+  JsonObject root = jsonBuffer.to<JsonObject>();
+    if (status == 1)
+    {
+      root["current"] =  // Pass current from IC;
+      root["voltage"] =  // Pass voltage from IC
+      root["temperature"] =  // Pass temperature from IC
+      root["id"] = 1;
+      root["timestamp"] = time_stamp; //Pass epoch time
+    }
 
     Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
     serializeJson(root, Serial);
@@ -295,8 +295,8 @@ void sendData(void)
     if (!client.publish(MQTT_PUB_TOPIC, shadow, false, 0))
       lwMQTTErr(client.lastError());
   #endif
-  }
 }
+
 
 void setup()
 {
@@ -340,8 +340,6 @@ void loop()
   if (!client.connected())
   {
     checkWiFiThenMQTT();
-    //checkWiFiThenMQTTNonBlocking();
-    //checkWiFiThenReboot();
   }
   else
   {
